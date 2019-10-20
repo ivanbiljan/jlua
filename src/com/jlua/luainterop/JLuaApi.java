@@ -14,30 +14,6 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Paths;
 
 public final class JLuaApi {
-    static {
-        // In order to obtain the architecture we will rely on JNA's kernel32 implementation as os.arch is not feasible
-        final String executingDirectory = System.getProperty("user.dir");
-        final String architecture = getSystemArchitecture();
-        final String lua53Path = Paths.get(executingDirectory, architecture).toAbsolutePath().toString();
-        System.setProperty("jna.library.path", lua53Path);
-    }
-
-    @Contract(pure = true)
-    private static String getSystemArchitecture() {
-        // If we are running on a 32bit system there is no way we are running an x64 application
-        String environment = System.getenv("ProgramW6432");
-        if (environment == null || environment.length() == 0) {
-            return "x86";
-        }
-
-        // There's still a possibility of running WOW64, though
-        Kernel32 kernel32 = Kernel32.INSTANCE;
-        WinNT.HANDLE handle = kernel32.GetCurrentProcess();
-        IntByReference pointer = new IntByReference();
-        kernel32.IsWow64Process(handle, pointer);
-        return pointer.getValue() != 0 ? "x86" : "x64";
-    }
-
     public static String getLuaString(Pointer luaState, int stackIndex) {
         IntByReference size = new IntByReference();
         Pointer stringPointer = lua53.INSTANCE.lua_tolstring(luaState, stackIndex, size);
