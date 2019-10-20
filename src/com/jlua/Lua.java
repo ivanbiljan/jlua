@@ -15,12 +15,6 @@ public final class Lua {
     private IntByReference luaState;
 
     public Lua(Boolean openLuaLibs) {
-        // In order to obtain the architecture we will rely on JNA's kernel32 implementation as os.arch is not feasible
-        final String executingDirectory = System.getProperty("user.dir");
-        final String architecture = getSystemArchitecture();
-        final String lua53Path = Paths.get(executingDirectory, architecture).toAbsolutePath().toString();
-        System.setProperty("jna.library.path", lua53Path);
-
         JLuaApi.lua53 lua53 = JLuaApi.lua53.INSTANCE;
         this.luaState = lua53.luaL_newstate();
         if (openLuaLibs) {
@@ -48,22 +42,6 @@ public final class Lua {
         assert name != null : "name must not be null";
         JLuaApi.lua53.INSTANCE.lua_getglobal(getLuaState(), name);
         return getObject(-1);
-    }
-    
-    @Contract(pure = true)
-    private String getSystemArchitecture() {
-        // If we are running on a 32bit system there is no way we are running a x64 application
-        String environment = System.getenv("ProgramW6432");
-        if (environment == null || environment.length() == 0) {
-            return "x86";
-        }
-
-        // There's still a possibility of running WOW64, though
-        Kernel32 kernel32 = Kernel32.INSTANCE;
-        WinNT.HANDLE handle = kernel32.GetCurrentProcess();
-        IntByReference pointer = new IntByReference();
-        kernel32.IsWow64Process(handle, pointer);
-        return pointer.getValue() != 0 ? "x86" : "x64";
     }
     
     private void pushObject(Object object) {
