@@ -21,7 +21,7 @@ public final class Lua {
         // In order to obtain the architecture we will rely on JNA's kernel32 implementation as os.arch is not feasible
         final String executingDirectory = System.getProperty("user.dir");
         final String architecture = getSystemArchitecture();
-        final String lua53Path = Paths.get(executingDirectory, architecture).toAbsolutePath().toString();
+        final String lua53Path = Paths.get(executingDirectory, "targets", architecture).toAbsolutePath().toString();
         System.setProperty("jna.library.path", lua53Path);
 
         JLuaApi.lua53 lua53 = JLuaApi.lua53.INSTANCE;
@@ -69,7 +69,7 @@ public final class Lua {
         return getObject(-1);
     }
     
-    private void pushObject(Object object) {
+    protected void pushObject(Object object) {
         JLuaApi.lua53 lua53 = JLuaApi.lua53.INSTANCE;
         Pointer pointer = getLuaState();
         if (object == null) {
@@ -89,12 +89,11 @@ public final class Lua {
         }
     }
 
-    private Object getObject(int stackIndex) throws LuaException {
+    protected Object getObject(int stackIndex) throws LuaException {
         JLuaApi.lua53 lua53 = JLuaApi.lua53.INSTANCE;
         Pointer pointer = getLuaState();
         LuaType luaType = LuaType.values()[lua53.lua_type(pointer, stackIndex)];
         switch (luaType) {
-
             case LUA_TNIL:
                 return null;
             case LUA_TBOOLEAN:
@@ -110,7 +109,7 @@ public final class Lua {
             case LUA_TTABLE:
                 throw new LuaException("Tables are not supported");
             case LUA_TFUNCTION:
-                throw new LuaException("Functions are not supported");
+                return new LuaObject(this, stackIndex);
             case LUA_TUSERDATA:
                 throw new LuaException("Userdata is not supported");
             case LUA_TTHREAD:
@@ -122,11 +121,14 @@ public final class Lua {
 
     public Object[] doString(@NotNull String chunk, int numberOfResults, Object... args) throws LuaException {
         assert chunk != null : "chunk must not be null";
+        JLuaApi.lua53.INSTANCE.luaL_loadstring(getLuaState(), chunk);
+        return call(numberOfResults, args);
+    }
+
+    protected Object[] call(int numberOfResults, Object... args) throws LuaException {
         JLuaApi.lua53 lua53 = JLuaApi.lua53.INSTANCE;
         Pointer pointer = getLuaState();
-        int oldStackTop = lua53.lua_gettop(pointer);
-
-        lua53.luaL_loadstring(pointer, chunk);
+        int oldStackTop = lua53.lua_gettop(pointer) - 1; // The function we're calling is at the top of the stack
         if (args != null) {
             for (Object arg : args){
                 pushObject(arg);
@@ -152,5 +154,14 @@ public final class Lua {
     public Object[] doString(@NotNull String chunk, Object... args) throws LuaException {
         assert chunk != null : "chunk must not be null";
         return doString(chunk, LuaConstants.LUA_MULTRET, args);
+    }
+
+    public LuaObject createFunction(@NotNull String functionBody) throws LuaException {
+        assert functionBody != null : "functionBody must not be null";
+
+        JLuaApi.lua53.INSTANCE.luaL_loadstring(getLuaState(), functionBody);
+        LuaObject function = (LuaObject) getObject(-1);
+        JLuaApi.lua53.INSTANCE.lua_pop(getLuaState(), 1);
+        return function;
     }
 }

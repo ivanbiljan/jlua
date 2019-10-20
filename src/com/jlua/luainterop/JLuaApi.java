@@ -90,5 +90,11 @@ public final class JLuaApi {
         int luaL_unref(Pointer luaState, int t, int ref);
 
         int lua_rawgeti(Pointer luaState, int t, long n);
+
+        int lua_istable(Pointer luaState, int n);
+
+        int lua_isuserdata(Pointer luaState, int n);
+
+        int lua_isthread(Pointer luaState, int n);
     }
 }
