@@ -1,5 +1,6 @@
 package com.jlua;
 
+import com.jlua.exceptions.LuaException;
 import com.jlua.luainterop.JLuaApi;
 import com.jlua.luainterop.LuaType;
 import com.sun.jna.Pointer;

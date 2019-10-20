@@ -21,7 +21,7 @@ public final class JLuaApi {
 
     @Contract(pure = true)
     private static String getSystemArchitecture() {
-        // If we are running on a 32bit system there is no way we are running a x64 application
+        // If we are running on a 32bit system there is no way we are running an x64 application
         String environment = System.getenv("ProgramW6432");
         if (environment == null || environment.length() == 0) {
             return "x86";
