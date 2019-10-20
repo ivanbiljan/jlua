@@ -27,18 +27,28 @@ public final class JLuaApi {
             lua_settop(luaState, -n - 1);
         }
 
-        void lua_setglobal(Pointer luaState, String name);
+        void lua_pushboolean(Pointer luaState, int b);
+
+        void lua_pushinteger(Pointer luaState, long n);
 
         void lua_pushnil(Pointer luaState);
 
+        void lua_pushnumber(Pointer luaState, float n);
+
         void lua_pushstring(Pointer luaState, byte[] bytes);
 
-        void lua_pushboolean(Pointer luaState, int b);
+        void lua_setglobal(Pointer luaState, String name);
 
         void lua_settop(Pointer luaState, int n);
 
-        int lua_type(Pointer luaState, int index);
-
         int lua_toboolean(Pointer luaState, int index);
+
+        long lua_tointegerx(Pointer luaState, int index, Pointer isNum);
+
+        String lua_tolstring(Pointer luaState, int index, Pointer size);
+
+        float lua_tonumberx(Pointer luaState, int index, Pointer isNum);
+
+        int lua_type(Pointer luaState, int index);
     }
 }
