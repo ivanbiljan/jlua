@@ -68,11 +68,11 @@ public final class JLuaApi {
 
         int lua_toboolean(Pointer luaState, int index);
 
-        long lua_tointegerx(Pointer luaState, int index, Pointer isNum);
+        long lua_tointegerx(Pointer luaState, int index, IntByReference isNum);
 
         Pointer lua_tolstring(Pointer luaState, int index, IntByReference size);
 
-        float lua_tonumberx(Pointer luaState, int index, Pointer isNum);
+        float lua_tonumberx(Pointer luaState, int index, IntByReference isNum);
 
         int lua_isinteger(Pointer luaState, int index);
 
