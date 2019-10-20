@@ -82,5 +82,13 @@ public final class JLuaApi {
         int luaL_loadstring(Pointer luaState, String s);
 
         int lua_pcallk(Pointer luaState, int nargs, int nresults, int msgh, IntByReference ctx, IntByReference k);
+
+        void lua_pushvalue(Pointer luaState, int index);
+
+        int luaL_ref(Pointer luaState, int t);
+
+        int luaL_unref(Pointer luaState, int t, int ref);
+
+        int lua_rawgeti(Pointer luaState, int t, long n);
     }
 }

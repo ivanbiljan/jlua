@@ -102,7 +102,7 @@ public final class Lua {
             case LUA_TLIGHTUSERDATA:
                 throw new LuaException("Light Userdata is not supported");
             case LUA_TNUMBER:
-                return lua53.lua_isinteger(pointer, stackIndex) == 1
+                return lua53.lua_isinteger(pointer, stackIndex) > 0
                         ? lua53.lua_tointegerx(pointer, stackIndex, null)
                         : lua53.lua_tonumberx(pointer, stackIndex, null);
             case LUA_TSTRING:
