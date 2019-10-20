@@ -31,6 +31,7 @@ public final class JLuaApi {
         return StandardCharsets.UTF_8.encode(string).array();
     }
 
+    // TODO: Figure this out since Delegates are not a thing in Java...
     public interface lua_CFunction {
         int Invoke(Pointer luaState);
     }
@@ -77,5 +78,9 @@ public final class JLuaApi {
         int lua_isinteger(Pointer luaState, int index);
 
         int lua_type(Pointer luaState, int index);
+
+        int luaL_loadstring(Pointer luaState, String s);
+
+        int lua_pcallk(Pointer luaState, int nargs, int nresults, int msgh, IntByReference ctx, IntByReference k);
     }
 }

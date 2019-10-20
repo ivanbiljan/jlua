@@ -2,6 +2,8 @@ package com.jlua;
 
 import com.jlua.exceptions.LuaException;
 import com.jlua.luainterop.JLuaApi;
+import com.jlua.luainterop.LuaConstants;
+import com.jlua.luainterop.LuaThreadStatus;
 import com.jlua.luainterop.LuaType;
 import com.sun.jna.Pointer;
 import com.sun.jna.platform.win32.Kernel32;
@@ -116,5 +118,39 @@ public final class Lua {
         }
 
         return null;
+    }
+
+    public Object[] doString(@NotNull String chunk, int numberOfResults, Object... args) throws LuaException {
+        assert chunk != null : "chunk must not be null";
+        JLuaApi.lua53 lua53 = JLuaApi.lua53.INSTANCE;
+        Pointer pointer = getLuaState();
+        int oldStackTop = lua53.lua_gettop(pointer);
+
+        lua53.luaL_loadstring(pointer, chunk);
+        if (args != null) {
+            for (Object arg : args){
+                pushObject(arg);
+            }
+        }
+
+        int nargs = args == null ? 0 : args.length;
+        if (lua53.lua_pcallk(pointer, nargs, -1, 0, null, null) != 0) {
+            // If the invocation fails Lua will push an error message
+            String errorMessage = (String) getObject(-1);
+            lua53.lua_pop(pointer, 1);
+            throw new LuaException(errorMessage);
+        }
+
+        Object[] objs = new Object[lua53.lua_gettop(pointer) - oldStackTop];
+        for (int i = oldStackTop + 1; i <= lua53.lua_gettop(pointer); ++i) {
+            objs[i - oldStackTop - 1] = getObject(i);
+        }
+
+        return objs;
+    }
+
+    public Object[] doString(@NotNull String chunk, Object... args) throws LuaException {
+        assert chunk != null : "chunk must not be null";
+        return doString(chunk, LuaConstants.LUA_MULTRET, args);
     }
 }
