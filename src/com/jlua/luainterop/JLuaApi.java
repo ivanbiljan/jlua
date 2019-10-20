@@ -1,6 +1,7 @@
 package com.jlua.luainterop;
 
 import com.sun.jna.Library;
+import com.sun.jna.Memory;
 import com.sun.jna.Native;
 import com.sun.jna.Pointer;
 import com.sun.jna.platform.win32.Kernel32;
@@ -8,6 +9,8 @@ import com.sun.jna.platform.win32.WinNT;
 import com.sun.jna.ptr.IntByReference;
 import org.jetbrains.annotations.Contract;
 
+import javax.sound.sampled.AudioFormat;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Paths;
 
 public final class JLuaApi {
@@ -33,6 +36,23 @@ public final class JLuaApi {
         IntByReference pointer = new IntByReference();
         kernel32.IsWow64Process(handle, pointer);
         return pointer.getValue() != 0 ? "x86" : "x64";
+    }
+
+    public static String getLuaString(Pointer luaState, int stackIndex) {
+        IntByReference size = new IntByReference();
+        Pointer stringPointer = lua53.INSTANCE.lua_tolstring(luaState, stackIndex, size);
+        byte[] bytes = new byte[size.getValue()];
+        stringPointer.read(0, bytes, 0, bytes.length);
+        return Native.toString(bytes);
+    }
+
+    public static void pushLuaString(Pointer luaState, String string) {
+        byte[] encodedBytes = getEncodedString(string);
+        lua53.INSTANCE.lua_pushlstring(luaState, encodedBytes, encodedBytes.length);
+    }
+
+    private static byte[] getEncodedString(String string) {
+        return StandardCharsets.UTF_8.encode(string).array();
     }
 
     public interface lua_CFunction {
@@ -64,7 +84,7 @@ public final class JLuaApi {
 
         void lua_pushnumber(Pointer luaState, float n);
 
-        void lua_pushstring(Pointer luaState, byte[] bytes);
+        void lua_pushlstring(Pointer luaState, byte[] bytes, int size);
 
         void lua_setglobal(Pointer luaState, String name);
 
@@ -74,9 +94,11 @@ public final class JLuaApi {
 
         long lua_tointegerx(Pointer luaState, int index, Pointer isNum);
 
-        String lua_tolstring(Pointer luaState, int index, Pointer size);
+        Pointer lua_tolstring(Pointer luaState, int index, IntByReference size);
 
         float lua_tonumberx(Pointer luaState, int index, Pointer isNum);
+
+        int lua_isinteger(Pointer luaState, int index);
 
         int lua_type(Pointer luaState, int index);
     }
