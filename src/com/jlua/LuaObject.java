@@ -58,14 +58,14 @@ public final class LuaObject {
 
     public Boolean isFunction() {
         pushToStack();
-        Boolean result = JLuaApi.lua53.INSTANCE.lua_istable(getParentLuaState(), -1) == 1;
+        Boolean result = JLuaApi.lua53.INSTANCE.lua_isfunction(getParentLuaState(), -1) == 1;
         JLuaApi.lua53.INSTANCE.lua_pop(getParentLuaState(), 1);
         return result;
     }
 
     public Object[] call(int numberOfResults, Object... args) throws LuaException {
-        if (!isFunction()) {
-            throw new LuaException("Cannot call an object that is not a Lua function.");
+        if (!isFunction() && !isThread()) {
+            throw new LuaException("Cannot call an object that is not a Lua function or coroutine.");
         }
 
         pushToStack();

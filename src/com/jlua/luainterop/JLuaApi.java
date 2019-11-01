@@ -8,12 +8,21 @@ import com.sun.jna.platform.win32.Kernel32;
 import com.sun.jna.platform.win32.WinNT;
 import com.sun.jna.ptr.IntByReference;
 import org.jetbrains.annotations.Contract;
+import sun.misc.Unsafe;
 
 import javax.sound.sampled.AudioFormat;
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
+import java.io.ObjectOutputStream;
+import java.lang.reflect.Field;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Paths;
 
 public final class JLuaApi {
+    static {
+        System.loadLibrary("jluanative");
+    }
+
     public static String getLuaString(Pointer luaState, int stackIndex) {
         IntByReference size = new IntByReference();
         Pointer stringPointer = lua53.INSTANCE.lua_tolstring(luaState, stackIndex, size);
@@ -25,6 +34,14 @@ public final class JLuaApi {
     public static void pushLuaString(Pointer luaState, String string) {
         byte[] encodedBytes = getEncodedString(string);
         lua53.INSTANCE.lua_pushlstring(luaState, encodedBytes, encodedBytes.length);
+    }
+
+    public static native void pushUserdata(Pointer luaState, Object object);
+
+    private static Unsafe getUnsafe() throws NoSuchFieldException, IllegalAccessException {
+        Field field = sun.misc.Unsafe.class.getDeclaredField("theUnsafe");
+        field.setAccessible(true);
+        return (sun.misc.Unsafe) field.get(null);
     }
 
     private static byte[] getEncodedString(String string) {
@@ -96,5 +113,9 @@ public final class JLuaApi {
         int lua_isuserdata(Pointer luaState, int n);
 
         int lua_isthread(Pointer luaState, int n);
+
+        int lua_isfunction(Pointer luaState, int n);
+
+        IntByReference lua_newuserdata(Pointer luaState, long size);
     }
 }
