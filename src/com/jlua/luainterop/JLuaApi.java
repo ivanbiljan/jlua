@@ -1,5 +1,7 @@
 package com.jlua.luainterop;
 
+import com.jlua.LuaObject;
+import com.jlua.exceptions.LuaException;
 import com.sun.jna.Library;
 import com.sun.jna.Memory;
 import com.sun.jna.Native;
@@ -21,6 +23,57 @@ import java.nio.file.Paths;
 public final class JLuaApi {
     static {
         System.loadLibrary("jluanative");
+    }
+
+    public static  void pushObject(Pointer luaState, Object object) {
+        JLuaApi.lua53 lua53 = JLuaApi.lua53.INSTANCE;
+        if (object == null) {
+            lua53.lua_pushnil(luaState);
+        }
+        else if (object instanceof Boolean) {
+            lua53.lua_pushboolean(luaState, (Boolean) object == true ? 1 : 0);
+        }
+        else if (object instanceof Byte || object instanceof Short || object instanceof Integer || object instanceof Long) {
+            lua53.lua_pushinteger(luaState, (Long) object);
+        }
+        else if (object instanceof Float) {
+            lua53.lua_pushnumber(luaState, (Float) object);
+        }
+        else if (object instanceof String) {
+            JLuaApi.pushLuaString(luaState, (String) object);
+        }
+        else {
+            JLuaApi.pushUserdata(luaState, object);
+        }
+    }
+
+    public static Object getObject(Pointer pointer, int stackIndex) throws LuaException {
+        JLuaApi.lua53 lua53 = JLuaApi.lua53.INSTANCE;
+        LuaType luaType = LuaType.values()[lua53.lua_type(pointer, stackIndex)];
+        switch (luaType) {
+            case LUA_TNIL:
+                return null;
+            case LUA_TBOOLEAN:
+                return lua53.lua_toboolean(pointer, stackIndex) == 1;
+            case LUA_TLIGHTUSERDATA:
+                throw new LuaException("Light Userdata is not supported");
+            case LUA_TNUMBER:
+                return lua53.lua_isinteger(pointer, stackIndex) > 0
+                        ? lua53.lua_tointegerx(pointer, stackIndex, null)
+                        : lua53.lua_tonumberx(pointer, stackIndex, null);
+            case LUA_TSTRING:
+                return JLuaApi.getLuaString(pointer, stackIndex);
+            case LUA_TTABLE:
+                throw new LuaException("Tables are not supported");
+            case LUA_TFUNCTION:
+                //return new LuaObject(this, stackIndex);
+            case LUA_TUSERDATA:
+                throw new LuaException("Userdata is not supported");
+            case LUA_TTHREAD:
+                throw new LuaException("Threads are not supported");
+        }
+
+        return null;
     }
 
     public static String getLuaString(Pointer luaState, int stackIndex) {

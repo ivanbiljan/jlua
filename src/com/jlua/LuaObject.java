@@ -71,7 +71,7 @@ public final class LuaObject {
         pushToStack();
         if (args != null) {
             for (Object arg : args) {
-                lua.pushObject(arg);
+                JLuaApi.pushObject(getParentLuaState(), arg);
             }
         }
 

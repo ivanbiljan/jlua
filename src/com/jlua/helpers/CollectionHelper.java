@@ -24,8 +24,8 @@ public final class CollectionHelper {
         assert collections != null : "collections must not be null";
 
         return new HashSet<T>() {{
-            for (Collection<T> set : collections) {
-                addAll(set);
+            for (Collection<T> collection : collections) {
+                addAll(collection);
             }
         }};
     }

@@ -58,7 +58,7 @@ public final class Lua {
 
     public void setGlobal(@NotNull String name, Object value) {
         assert name != null : "name must not be null";
-        pushObject(value);
+        JLuaApi.pushObject(getLuaState(), value);
         JLuaApi.lua53.INSTANCE.lua_setglobal(getLuaState(), name);
         JLuaApi.lua53.INSTANCE.lua_pop(getLuaState(), 1);
     }
@@ -66,57 +66,7 @@ public final class Lua {
     public Object getGlobal(@NotNull String name) throws LuaException {
         assert name != null : "name must not be null";
         JLuaApi.lua53.INSTANCE.lua_getglobal(getLuaState(), name);
-        return getObject(-1);
-    }
-    
-    protected void pushObject(Object object) {
-        JLuaApi.lua53 lua53 = JLuaApi.lua53.INSTANCE;
-        Pointer pointer = getLuaState();
-        if (object == null) {
-            lua53.lua_pushnil(pointer);
-        }
-        if (object instanceof Boolean) {
-            lua53.lua_pushboolean(pointer, (Boolean) object == true ? 1 : 0);
-        }
-        if (object instanceof Byte || object instanceof Short || object instanceof Integer || object instanceof Long) {
-            lua53.lua_pushinteger(pointer, (Long) object);
-        }
-        if (object instanceof Float) {
-            lua53.lua_pushnumber(pointer, (Float) object);
-        }
-        if (object instanceof String) {
-            JLuaApi.pushLuaString(pointer, (String) object);
-        }
-    }
-
-    protected Object getObject(int stackIndex) throws LuaException {
-        JLuaApi.lua53 lua53 = JLuaApi.lua53.INSTANCE;
-        Pointer pointer = getLuaState();
-        LuaType luaType = LuaType.values()[lua53.lua_type(pointer, stackIndex)];
-        switch (luaType) {
-            case LUA_TNIL:
-                return null;
-            case LUA_TBOOLEAN:
-                return lua53.lua_toboolean(pointer, stackIndex) == 1;
-            case LUA_TLIGHTUSERDATA:
-                throw new LuaException("Light Userdata is not supported");
-            case LUA_TNUMBER:
-                return lua53.lua_isinteger(pointer, stackIndex) > 0
-                        ? lua53.lua_tointegerx(pointer, stackIndex, null)
-                        : lua53.lua_tonumberx(pointer, stackIndex, null);
-            case LUA_TSTRING:
-                return JLuaApi.getLuaString(pointer, stackIndex);
-            case LUA_TTABLE:
-                throw new LuaException("Tables are not supported");
-            case LUA_TFUNCTION:
-                return new LuaObject(this, stackIndex);
-            case LUA_TUSERDATA:
-                throw new LuaException("Userdata is not supported");
-            case LUA_TTHREAD:
-                throw new LuaException("Threads are not supported");
-        }
-
-        return null;
+        return JLuaApi.getObject(getLuaState(), -1);
     }
 
     public Object[] doString(@NotNull String chunk, int numberOfResults, Object... args) throws LuaException {
@@ -131,21 +81,21 @@ public final class Lua {
         int oldStackTop = lua53.lua_gettop(pointer) - 1; // The function we're calling is at the top of the stack
         if (args != null) {
             for (Object arg : args){
-                pushObject(arg);
+                JLuaApi.pushObject(getLuaState(), arg);
             }
         }
 
         int nargs = args == null ? 0 : args.length;
         if (lua53.lua_pcallk(pointer, nargs, -1, 0, null, null) != 0) {
             // If the invocation fails Lua will push an error message
-            String errorMessage = (String) getObject(-1);
+            String errorMessage = (String) JLuaApi.getObject(getLuaState(), 1);
             lua53.lua_pop(pointer, 1);
             throw new LuaException(errorMessage);
         }
 
         Object[] objs = new Object[lua53.lua_gettop(pointer) - oldStackTop];
         for (int i = oldStackTop + 1; i <= lua53.lua_gettop(pointer); ++i) {
-            objs[i - oldStackTop - 1] = getObject(i);
+            objs[i - oldStackTop - 1] = JLuaApi.getObject(getLuaState(), i);
         }
 
         return objs;
@@ -160,7 +110,7 @@ public final class Lua {
         assert functionBody != null : "functionBody must not be null";
 
         JLuaApi.lua53.INSTANCE.luaL_loadstring(getLuaState(), functionBody);
-        LuaObject function = (LuaObject) getObject(-1);
+        LuaObject function = (LuaObject) JLuaApi.getObject(getLuaState(), -1);
         JLuaApi.lua53.INSTANCE.lua_pop(getLuaState(), 1);
         return function;
     }
