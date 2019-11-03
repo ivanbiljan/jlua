@@ -1,54 +1,55 @@
 package com.jlua.luainterop;
-
-import com.jlua.LuaObject;
 import com.jlua.exceptions.LuaException;
-import com.sun.jna.Library;
-import com.sun.jna.Memory;
 import com.sun.jna.Native;
-import com.sun.jna.Pointer;
+import com.sun.jna.platform.win32.BaseTSD;
 import com.sun.jna.platform.win32.Kernel32;
 import com.sun.jna.platform.win32.WinNT;
 import com.sun.jna.ptr.IntByReference;
+import jnr.ffi.LibraryLoader;
+import jnr.ffi.Pointer;
+import jnr.ffi.Struct;
+import jnr.ffi.StructLayout;
+import jnr.ffi.annotations.Delegate;
+import jnr.ffi.types.size_t;
 import org.jetbrains.annotations.Contract;
 import sun.misc.Unsafe;
 
-import javax.sound.sampled.AudioFormat;
-import java.io.ByteArrayOutputStream;
-import java.io.IOException;
-import java.io.ObjectOutputStream;
 import java.lang.reflect.Field;
+import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Paths;
+import java.util.HashMap;
+
+// TODO:
+//      Get rid of the JNA dependency
 
 public final class JLuaApi {
-    static {
-        System.loadLibrary("jluanative");
+    private static lua53 lua53Instance;
+
+    private final static HashMap<Pointer, Object> pointerToObject = new HashMap<>();
+    private static byte[] getEncodedString(String string) {
+        return StandardCharsets.UTF_8.encode(string).array();
     }
 
-    public static  void pushObject(Pointer luaState, Object object) {
-        JLuaApi.lua53 lua53 = JLuaApi.lua53.INSTANCE;
-        if (object == null) {
-            lua53.lua_pushnil(luaState);
+    public static lua53 getLua53Instance() {
+        if (lua53Instance == null) {
+            // In order to obtain the architecture we will rely on JNA's kernel32 implementation as os.arch is not feasible
+            final String executingDirectory = System.getProperty("user.dir");
+            final String architecture = getSystemArchitecture();
+            final String lua53Path = Paths.get(executingDirectory, "targets", architecture).toAbsolutePath().toString();
+            lua53Instance = LibraryLoader.create(lua53.class).search(lua53Path).load("lua53");
         }
-        else if (object instanceof Boolean) {
-            lua53.lua_pushboolean(luaState, (Boolean) object == true ? 1 : 0);
-        }
-        else if (object instanceof Byte || object instanceof Short || object instanceof Integer || object instanceof Long) {
-            lua53.lua_pushinteger(luaState, (Long) object);
-        }
-        else if (object instanceof Float) {
-            lua53.lua_pushnumber(luaState, (Float) object);
-        }
-        else if (object instanceof String) {
-            JLuaApi.pushLuaString(luaState, (String) object);
-        }
-        else {
-            JLuaApi.pushUserdata(luaState, object);
-        }
+
+        return lua53Instance;
+    }
+
+    public static String getLuaString(Pointer luaState, int stackIndex) {
+        Pointer stringPointer = getLua53Instance().lua_tolstring(luaState, stackIndex, null);
+        return stringPointer.getString(0, (int) stringPointer.size(), Charset.defaultCharset());
     }
 
     public static Object getObject(Pointer pointer, int stackIndex) throws LuaException {
-        JLuaApi.lua53 lua53 = JLuaApi.lua53.INSTANCE;
+        JLuaApi.lua53 lua53 = getLua53Instance();
         LuaType luaType = LuaType.values()[lua53.lua_type(pointer, stackIndex)];
         switch (luaType) {
             case LUA_TNIL:
@@ -68,7 +69,7 @@ public final class JLuaApi {
             case LUA_TFUNCTION:
                 //return new LuaObject(this, stackIndex);
             case LUA_TUSERDATA:
-                throw new LuaException("Userdata is not supported");
+                return getJavaObjectFromPointer(pointer, lua53.lua_topointer(pointer, stackIndex));
             case LUA_TTHREAD:
                 throw new LuaException("Threads are not supported");
         }
@@ -76,20 +77,21 @@ public final class JLuaApi {
         return null;
     }
 
-    public static String getLuaString(Pointer luaState, int stackIndex) {
-        IntByReference size = new IntByReference();
-        Pointer stringPointer = lua53.INSTANCE.lua_tolstring(luaState, stackIndex, size);
-        byte[] bytes = new byte[size.getValue()];
-        stringPointer.read(0, bytes, 0, bytes.length);
-        return Native.toString(bytes);
-    }
+    @Contract(pure = true)
+    private static String getSystemArchitecture() {
+        // If we are running on a 32bit system there is no way we are running an x64 application
+        String environment = System.getenv("ProgramW6432");
+        if (environment == null || environment.length() == 0) {
+            return "x86";
+        }
 
-    public static void pushLuaString(Pointer luaState, String string) {
-        byte[] encodedBytes = getEncodedString(string);
-        lua53.INSTANCE.lua_pushlstring(luaState, encodedBytes, encodedBytes.length);
+        // There's still a possibility of running WOW64, though
+        Kernel32 kernel32 = Kernel32.INSTANCE;
+        WinNT.HANDLE handle = kernel32.GetCurrentProcess();
+        IntByReference pointer = new IntByReference();
+        kernel32.IsWow64Process(handle, pointer);
+        return pointer.getValue() != 0 ? "x86" : "x64";
     }
-
-    public static native void pushUserdata(Pointer luaState, Object object);
 
     private static Unsafe getUnsafe() throws NoSuchFieldException, IllegalAccessException {
         Field field = sun.misc.Unsafe.class.getDeclaredField("theUnsafe");
@@ -97,21 +99,60 @@ public final class JLuaApi {
         return (sun.misc.Unsafe) field.get(null);
     }
 
-    private static byte[] getEncodedString(String string) {
-        return StandardCharsets.UTF_8.encode(string).array();
+    public static void pushLuaString(Pointer luaState, String string) {
+        byte[] encodedBytes = getEncodedString(string);
+        getLua53Instance().lua_pushlstring(luaState, encodedBytes, encodedBytes.length);
     }
 
-    // TODO: Figure this out since Delegates are not a thing in Java...
+    public static void pushObject(Pointer luaState, Object object) {
+        JLuaApi.lua53 lua53 = getLua53Instance();
+        if (object == null) {
+            lua53.lua_pushnil(luaState);
+        } else if (object instanceof Boolean) {
+            lua53.lua_pushboolean(luaState, (Boolean) object == true ? 1 : 0);
+        } else if (object instanceof Byte || object instanceof Short || object instanceof Integer || object instanceof Long) {
+            lua53.lua_pushinteger(luaState, (Long) object);
+        } else if (object instanceof Float) {
+            lua53.lua_pushnumber(luaState, (Float) object);
+        } else if (object instanceof String) {
+            JLuaApi.pushLuaString(luaState, (String) object);
+        } else {
+            JLuaApi.pushUserdata(luaState, object);
+        }
+    }
+
+    public static void pushUserdata(jnr.ffi.Pointer luaState, Object object) {
+        lua53 lua53 = getLua53Instance();
+        Pointer ptr = lua53.lua_newuserdata(luaState, getSystemArchitecture() == "x86" ? 4 : 8);
+        lua53.lua_getfield(luaState, LuaConstants.REGISTRY_INDEX, "jlua_object");
+        lua53.lua_setmetatable(luaState, -2);
+        pointerToObject.put(ptr, object);
+    }
+
+    private static Object getJavaObjectFromPointer(Pointer luaState, Pointer userdataPointer) {
+        return pointerToObject.getOrDefault(userdataPointer, null);
+    }
+
+    public static void releaseObject(Object object) {
+        pointerToObject.remove(object);
+    }
+
     public interface lua_CFunction {
-        int Invoke(Pointer luaState);
+        @Delegate
+        int Invoke(Pointer luaState) throws LuaException, IllegalAccessException;
     }
 
-    public interface lua53 extends Library {
-        lua53 INSTANCE = Native.load("lua53", lua53.class);
+    // See: https://www.lua.org/manual/5.3/manual.html
+    public interface lua53 {
+        int luaL_loadstring(Pointer luaState, String s);
 
-        IntByReference luaL_newstate();
+        Pointer luaL_newstate();
 
         void luaL_openlibs(Pointer luaState);
+
+        int luaL_ref(Pointer luaState, int t);
+
+        int luaL_unref(Pointer luaState, int t, int ref);
 
         void lua_close(Pointer luaState);
 
@@ -119,19 +160,41 @@ public final class JLuaApi {
 
         int lua_gettop(Pointer luaState);
 
+        int lua_isfunction(Pointer luaState, int n);
+
+        int lua_isinteger(Pointer luaState, int index);
+
+        int lua_istable(Pointer luaState, int n);
+
+        int lua_isthread(Pointer luaState, int n);
+
+        int lua_isuserdata(Pointer luaState, int n);
+
+        int lua_pcallk(Pointer luaState, int nargs, int nresults, int msgh, Pointer ctx, Pointer k);
+
         default void lua_pop(Pointer luaState, int n) {
             lua_settop(luaState, -n - 1);
         }
 
+        default void lua_pushlstring(Pointer luaState, String string) {
+
+        }
+
         void lua_pushboolean(Pointer luaState, int b);
 
+        void lua_pushcclosure(Pointer luaState, lua_CFunction lua_cFunction, int n);
+
         void lua_pushinteger(Pointer luaState, long n);
+
+        void lua_pushlstring(Pointer luaState, byte[] bytes, int size);
 
         void lua_pushnil(Pointer luaState);
 
         void lua_pushnumber(Pointer luaState, float n);
 
-        void lua_pushlstring(Pointer luaState, byte[] bytes, int size);
+        void lua_pushvalue(Pointer luaState, int index);
+
+        int lua_rawgeti(Pointer luaState, int t, long n);
 
         void lua_setglobal(Pointer luaState, String name);
 
@@ -139,36 +202,26 @@ public final class JLuaApi {
 
         int lua_toboolean(Pointer luaState, int index);
 
-        long lua_tointegerx(Pointer luaState, int index, IntByReference isNum);
+        long lua_tointegerx(Pointer luaState, int index, Pointer isNum);
 
-        Pointer lua_tolstring(Pointer luaState, int index, IntByReference size);
+        Pointer lua_tolstring(Pointer luaState, int index, Pointer size);
 
-        float lua_tonumberx(Pointer luaState, int index, IntByReference isNum);
-
-        int lua_isinteger(Pointer luaState, int index);
+        float lua_tonumberx(Pointer luaState, int index, Pointer isNum);
 
         int lua_type(Pointer luaState, int index);
 
-        int luaL_loadstring(Pointer luaState, String s);
+        jnr.ffi.Pointer lua_newuserdata(jnr.ffi.Pointer luaState, long size);
 
-        int lua_pcallk(Pointer luaState, int nargs, int nresults, int msgh, IntByReference ctx, IntByReference k);
+        int lua_getfield(Pointer luaState, int index, String k);
 
-        void lua_pushvalue(Pointer luaState, int index);
+        void lua_setmetatable(Pointer luaState, int index);
 
-        int luaL_ref(Pointer luaState, int t);
+        Pointer lua_topointer(Pointer luaState, int index);
 
-        int luaL_unref(Pointer luaState, int t, int ref);
+        void lua_createtable(Pointer luaState, int narr, int nrec);
 
-        int lua_rawgeti(Pointer luaState, int t, long n);
+        void lua_pushcfunction(Pointer luaState, lua_CFunction lua_cFunction);
 
-        int lua_istable(Pointer luaState, int n);
-
-        int lua_isuserdata(Pointer luaState, int n);
-
-        int lua_isthread(Pointer luaState, int n);
-
-        int lua_isfunction(Pointer luaState, int n);
-
-        IntByReference lua_newuserdata(Pointer luaState, long size);
+        void lua_settable(Pointer luaState, int index);
     }
 }

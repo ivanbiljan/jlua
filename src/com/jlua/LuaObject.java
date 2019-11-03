@@ -6,21 +6,21 @@ import com.jlua.luainterop.JLuaApi;
 import com.jlua.luainterop.LuaConstants;
 import com.sun.jna.Pointer;
 
-public final class LuaObject {
+/*public final class LuaObject {
     private Lua lua;
     private int reference;
 
     public LuaObject(Lua lua, int stackIndex) {
         this.lua = lua;
 
-        JLuaApi.lua53 lua53 = JLuaApi.lua53.INSTANCE;
+        JLuaApi.lua53 lua53 = JLuaApi.getLua53Instance();
         lua53.lua_pushvalue(lua.getLuaState(), stackIndex);
         this.reference = lua53.luaL_ref(getParentLuaState(), LuaConstants.REGISTRY_INDEX);
     }
 
     @Override
     protected void finalize() {
-        JLuaApi.lua53.INSTANCE.luaL_unref(getParentLuaState(), LuaConstants.REGISTRY_INDEX, getReference());
+        JLuaApi.getLua53Instance().luaL_unref(getParentLuaState(), LuaConstants.REGISTRY_INDEX, getReference());
     }
 
     public Lua getLua() {
@@ -37,29 +37,29 @@ public final class LuaObject {
 
     public Boolean isTable() {
         pushToStack();
-        Boolean result = JLuaApi.lua53.INSTANCE.lua_istable(getParentLuaState(), -1) == 1;
-        JLuaApi.lua53.INSTANCE.lua_pop(getParentLuaState(), 1);
+        Boolean result = JLuaApi.getLua53Instance().lua_istable(getParentLuaState(), -1) == 1;
+        JLuaApi.getLua53Instance().lua_pop(getParentLuaState(), 1);
         return result;
     }
 
     public Boolean isThread() {
         pushToStack();
-        Boolean result = JLuaApi.lua53.INSTANCE.lua_isthread(getParentLuaState(), -1) == 1;
-        JLuaApi.lua53.INSTANCE.lua_pop(getParentLuaState(), 1);
+        Boolean result = JLuaApi.getLua53Instance().lua_isthread(getParentLuaState(), -1) == 1;
+        JLuaApi.getLua53Instance().lua_pop(getParentLuaState(), 1);
         return result;
     }
 
     public Boolean isUserdata() {
         pushToStack();
-        Boolean result = JLuaApi.lua53.INSTANCE.lua_isuserdata(getParentLuaState(), -1) == 1;
-        JLuaApi.lua53.INSTANCE.lua_pop(getParentLuaState(), 1);
+        Boolean result = JLuaApi.getLua53Instance().lua_isuserdata(getParentLuaState(), -1) == 1;
+        JLuaApi.getLua53Instance().lua_pop(getParentLuaState(), 1);
         return result;
     }
 
     public Boolean isFunction() {
         pushToStack();
-        Boolean result = JLuaApi.lua53.INSTANCE.lua_isfunction(getParentLuaState(), -1) == 1;
-        JLuaApi.lua53.INSTANCE.lua_pop(getParentLuaState(), 1);
+        Boolean result = JLuaApi.getLua53Instance().lua_isfunction(getParentLuaState(), -1) == 1;
+        JLuaApi.getLua53Instance().lua_pop(getParentLuaState(), 1);
         return result;
     }
 
@@ -87,6 +87,6 @@ public final class LuaObject {
     }
 
     public void pushToStack(Pointer luaState) {
-        JLuaApi.lua53.INSTANCE.lua_rawgeti(luaState, LuaConstants.REGISTRY_INDEX, getReference());
+        JLuaApi.getLua53Instance().lua_rawgeti(luaState, LuaConstants.REGISTRY_INDEX, getReference());
     }
-}
+}*/
